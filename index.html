@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye Tracking Calibration</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            background-color: white;
+            position: relative;
+        }
+
+        #dot {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: black;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Puntos de calibración */
+        .calibration-point {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: red;
+            border-radius: 50%;
+            display: none; /* Ocultos por defecto */
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Punto negro que sigue la mirada -->
+    <div id="dot"></div>
+
+    <!-- Puntos de calibración -->
+    <div class="calibration-point" id="calibrationPoint1"></div>
+    <div class="calibration-point" id="calibrationPoint2"></div>
+    <div class="calibration-point" id="calibrationPoint3"></div>
+    <div class="calibration-point" id="calibrationPoint4"></div>
+    <div class="calibration-point" id="calibrationPoint5"></div>
+
+    <!-- WebGazer.js -->
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+    <script>
+        let calibrationCount = 0;
+        const totalCalibrationPoints = 5;
+
+        // Función para obtener las posiciones recalculadas en función del tamaño de la ventana
+        function getCalibrationPoints() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            return [
+                {x: width * 0.1, y: height * 0.1},   // Esquina superior izquierda
+                {x: width * 0.9 - 30, y: height * 0.1}, // Esquina superior derecha
+                {x: width / 2 - 15, y: height / 2 - 15}, // Centro
+                {x: width * 0.1, y: height * 0.9 - 30}, // Esquina inferior izquierda
+                {x: width * 0.9 - 30, y: height * 0.9 - 30} // Esquina inferior derecha
+            ];
+        }
+
+        window.onload = async function() {
+            await webgazer.begin();
+            webgazer.showPredictionPoints(false); // Ocultar los puntos predeterminados de predicción
+
+            // Iniciar el proceso de calibración
+            startCalibration();
+        };
+
+        function startCalibration() {
+            // Mostrar el primer punto de calibración
+            showCalibrationPoint(calibrationCount);
+        }
+
+        function showCalibrationPoint(index) {
+            const calibrationPoints = getCalibrationPoints();
+            const point = document.getElementById(`calibrationPoint${index + 1}`);
+            point.style.left = calibrationPoints[index].x + 'px';
+            point.style.top = calibrationPoints[index].y + 'px';
+            point.style.display = 'block';
+
+            // Cuando el usuario haga clic en el punto, recargar el modelo
+            point.addEventListener('click', function() {
+                point.style.display = 'none'; // Ocultar el punto después del clic
+                webgazer.addCalibrationData(calibrationPoints[index].x, calibrationPoints[index].y); // Añadir datos de calibración
+                calibrationCount++;
+
+                if (calibrationCount < totalCalibrationPoints) {
+                    // Mostrar el siguiente punto
+                    showCalibrationPoint(calibrationCount);
+                } else {
+                    // Calibración completa, comienza el seguimiento de la mirada
+                    trackGaze();
+                }
+            });
+        }
+
+        function trackGaze() {
+            webgazer.setGazeListener(function(data, elapsedTime) {
+                if (data == null) {
+                    return;
+                }
+
+                var x = data.x; // Coordenada X de la mirada
+                var y = data.y; // Coordenada Y de la mirada
+
+                // Mover el punto negro a la posición de la mirada
+                var dot = document.getElementById('dot');
+                dot.style.left = x + 'px';
+                dot.style.top = y + 'px';
+            });
+        }
+
+        // Recalcular las posiciones si la ventana es redimensionada
+        window.onresize = function() {
+            if (calibrationCount < totalCalibrationPoints) {
+                startCalibration();
+            }
+        };
+    </script>
+</body>
+</html>
